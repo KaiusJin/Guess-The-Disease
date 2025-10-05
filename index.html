@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Guess The Disease</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      background: #f3f5f8;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: flex-start;
+      height: 100vh;
+      overflow-x: hidden;
+      transition: all 0.3s ease-in-out;
+    }
+
+    #container {
+      width: 600px;
+      margin-top: 50px;
+      background: white;
+      padding: 20px 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+      position: relative;
+      z-index: 1;
+    }
+
+    h2 { text-align: center; }
+
+    /* 💊 Symptom Card */
+    #symptom-card {
+      display: none;
+      background: #e8f4ff;
+      border-left: 5px solid #0074D9;
+      padding: 10px 15px;
+      border-radius: 8px;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+
+    #messages {
+      height: 400px;
+      overflow-y: auto;
+      border: 1px solid #ccc;
+      padding: 10px;
+      border-radius: 8px;
+      background: #fafafa;
+    }
+    .msg { margin: 8px 0; white-space: pre-wrap; }
+    .user { color: #0074D9; }
+    .bot { color: #2ECC40; }
+
+    input {
+      width: 75%;
+      padding: 10px;
+      margin-top: 10px;
+      border-radius: 5px;
+      border: 1px solid #ccc;
+    }
+    button {
+      padding: 10px 15px;
+      margin-top: 10px;
+      border: none;
+      border-radius: 5px;
+      background: #0074D9;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover { background: #005fa3; }
+
+    /* 💫 Background blur overlay */
+    #overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      backdrop-filter: blur(0px);
+      background-color: rgba(255, 255, 255, 0);
+      z-index: 998;
+      animation: blurIn 0.6s forwards;
+    }
+    @keyframes blurIn {
+      0% { backdrop-filter: blur(0px); background-color: rgba(255,255,255,0); }
+      100% { backdrop-filter: blur(10px); background-color: rgba(255,255,255,0.25); }
+    }
+
+    /* 🩺 Diagnosis Result Card */
+    #result-card {
+      display: none;
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%) scale(0.9);
+      background: rgba(255, 255, 255, 0.75);
+      backdrop-filter: blur(18px);
+      border-radius: 16px;
+      box-shadow: 0 8px 30px rgba(0,0,0,0.25);
+      padding: 30px 40px;
+      width: 440px;
+      text-align: left;
+      z-index: 999;
+      animation: popIn 0.4s ease-out forwards;
+    }
+    #result-card h3 {
+      margin-top: 0;
+      color: #0074D9;
+      font-size: 22px;
+      margin-bottom: 12px;
+    }
+    #result-card p { margin: 8px 0; line-height: 1.5em; }
+    #result-card button {
+      margin-top: 20px;
+      width: 100%;
+      background-color: #0074D9;
+      border: none;
+      color: white;
+      padding: 10px;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: bold;
+      font-size: 15px;
+    }
+    #result-card button:hover { background-color: #005fa3; }
+    @keyframes popIn {
+      0% { transform: translate(-50%, -50%) scale(0.8); opacity: 0; }
+      100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div id="container">
+    <h2>🩺 Guess The Disease</h2>
+
+    <!-- 💊 Symptom Card -->
+    <div id="symptom-card"></div>
+
+    <!-- Chat Messages -->
+    <div id="messages"></div>
+
+    <!-- Doctor Input -->
+    <input id="input" placeholder="Ask the patient a question..." />
+    <button onclick="sendMessage()">Send</button>
+    <br>
+    <input id="guess" placeholder="Your diagnosis..." />
+    <button onclick="submitGuess()">Submit Guess</button>
+    <button onclick="resetCase()">New Case</button>
+  </div>
+
+  <!-- 💫 Background Blur Overlay -->
+  <div id="overlay"></div>
+
+  <!-- 🩺 Diagnosis Result Card -->
+  <div id="result-card">
+    <div class="card-content">
+      <h3 id="disease-name"></h3>
+      <p><b>🩸 Symptoms:</b> <span id="disease-symptoms"></span></p>
+      <p><b>🛡 Prevention:</b> <span id="disease-prevention"></span></p>
+      <p><b>💊 Treatment:</b> <span id="disease-treatment"></span></p>
+      <button onclick="closeResultCard()">Close</button>
+    </div>
+  </div>
+
+  <script>
+    const apiBase = "http://127.0.0.1:5000/api";
+
+    async function sendMessage() {
+      const input = document.getElementById("input");
+      const msgBox = document.getElementById("messages");
+      const message = input.value.trim();
+      if (!message) return;
+
+      msgBox.innerHTML += `<div class="msg user"><b>Doctor:</b> ${message}</div>`;
+      input.value = "";
+
+      const res = await fetch(`${apiBase}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message })
+      });
+      const data = await res.json();
+
+      msgBox.innerHTML += `<div class="msg bot"><b>Patient:</b> ${data.reply}</div>`;
+      msgBox.scrollTop = msgBox.scrollHeight;
+
+      // 💊 Update symptom card with revealed symptoms from backend
+      if (Array.isArray(data.symptoms) && data.symptoms.length > 0) {
+        const card = document.getElementById("symptom-card");
+        card.style.display = "block";
+        card.innerHTML = `<b>🩹 Reported Symptoms:</b> ${data.symptoms.join(", ")}`;
+      }
+    }
+
+    async function submitGuess() {
+      const guess = document.getElementById("guess").value.trim();
+      if (!guess) return;
+
+      const res = await fetch(`${apiBase}/guess`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ guess })
+      });
+      const data = await res.json();
+
+      // ✅ If correct → show modal (do NOT reset here)
+      if (data.disease_name) {
+        openResultCard(data);
+      } else {
+        alert(data.result);
+      }
+    }
+
+    function openResultCard(data) {
+      const overlay = document.getElementById("overlay");
+      const card = document.getElementById("result-card");
+
+      document.getElementById("disease-name").innerText = `🩺 ${data.disease_name}`;
+      document.getElementById("disease-symptoms").innerText = data.true_symptoms.join(", ");
+      document.getElementById("disease-prevention").innerText = data.prevention;
+      document.getElementById("disease-treatment").innerText = data.treatment;
+
+      overlay.style.display = "block";
+      card.style.display = "block";
+      document.body.style.overflow = "hidden"; // lock scroll while modal open
+    }
+
+    async function closeResultCard() {
+      const overlay = document.getElementById("overlay");
+      const card = document.getElementById("result-card");
+
+      card.style.display = "none";
+      overlay.style.display = "none";
+      document.body.style.overflow = "auto";
+
+      // 🔁 Start a new case AFTER closing card
+      const res = await fetch(`${apiBase}/reset`, { method: "POST" });
+      await res.json();
+
+      // Clear UI
+      document.getElementById("messages").innerHTML = "";
+      document.getElementById("symptom-card").style.display = "none";
+      // No alert here to avoid interfering the UX
+    }
+
+    async function resetCase() {
+      const res = await fetch(`${apiBase}/reset`, { method: "POST" });
+      const data = await res.json();
+      document.getElementById("messages").innerHTML = "";
+      document.getElementById("symptom-card").style.display = "none";
+      alert(data.message);
+    }
+  </script>
+</body>
+</html>

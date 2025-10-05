@@ -110,7 +110,7 @@ Next steps include:
 ## ❤️ Authors
 
 **Kaius Jin**, *University of Waterloo*
-and teammates @Hack The Valley 2025
+@Hack The Valley X 2025
 
 ## ⚠️ Disclaimer
 
